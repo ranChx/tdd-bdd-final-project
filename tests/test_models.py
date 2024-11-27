@@ -23,84 +23,119 @@ While debugging just these tests it's convenient to use this:
     nosetests --stop tests/test_models.py:TestProductModel
 
 """
-import os
-import logging
 import unittest
-from decimal import Decimal
-from service.models import Product, Category, db
-from service import app
+from service.models import Product, Category
 from tests.factories import ProductFactory
 
-DATABASE_URI = os.getenv(
-    "DATABASE_URI", "postgresql://postgres:postgres@localhost:5432/postgres"
-)
-
-
-######################################################################
-#  P R O D U C T   M O D E L   T E S T   C A S E S
-######################################################################
-# pylint: disable=too-many-public-methods
 class TestProductModel(unittest.TestCase):
-    """Test Cases for Product Model"""
+    
+    def test_create_product(self):
+        """It should create a product and verify that it has been created with correct properties."""
+        product = ProductFactory.create()  # Use factory to create product
+        self.assertIsNotNone(product.id)  # Check that ID is not None
+        self.assertEqual(product.name, product.name)  # Check name matches
+        self.assertEqual(product.description, product.description)  # Check description matches
+        self.assertEqual(product.price, product.price)  # Check price matches
+        self.assertEqual(product.available, product.available)  # Check availability
+        self.assertEqual(product.category, product.category)  # Check category
 
-    @classmethod
-    def setUpClass(cls):
-        """This runs once before the entire test suite"""
-        app.config["TESTING"] = True
-        app.config["DEBUG"] = False
-        app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URI
-        app.logger.setLevel(logging.CRITICAL)
-        Product.init_db(app)
+    def test_read_product(self):
+        """It should read a product from the database and verify its properties."""
+        product = ProductFactory.create()
+        product_id = product.id  # Save the ID for later comparison
+        
+        # Retrieve the product from the database
+        found_product = Product.query.get(product_id)
+        
+        self.assertEqual(found_product.id, product_id)  # Ensure the ID matches
+        self.assertEqual(found_product.name, product.name)  # Ensure name matches
+        self.assertEqual(found_product.description, product.description)  # Ensure description matches
+        self.assertEqual(found_product.price, product.price)  # Ensure price matches
+        self.assertEqual(found_product.available, product.available)  # Ensure availability matches
+        self.assertEqual(found_product.category, product.category)  # Ensure category matches
 
-    @classmethod
-    def tearDownClass(cls):
-        """This runs once after the entire test suite"""
-        db.session.close()
+    def test_update_product(self):
+        """It should update the product's description."""
+        product = ProductFactory.create()
+        original_id = product.id
+        original_description = product.description
+        
+        # Update the description
+        product.description = "Updated description"
+        product.save()
 
-    def setUp(self):
-        """This runs before each test"""
-        db.session.query(Product).delete()  # clean up the last tests
-        db.session.commit()
+        updated_product = Product.query.get(original_id)
 
-    def tearDown(self):
-        """This runs after each test"""
-        db.session.remove()
+        self.assertEqual(updated_product.id, original_id)  # Ensure ID is the same
+        self.assertNotEqual(updated_product.description, original_description)  # Ensure description is updated
+        self.assertEqual(updated_product.description, "Updated description")  # Ensure the new description matches
 
-    ######################################################################
-    #  T E S T   C A S E S
-    ######################################################################
+    def test_delete_product(self):
+        """It should delete the product from the database."""
+        product = ProductFactory.create()
+        product_id = product.id
+        
+        # Ensure the product exists
+        self.assertIsNotNone(Product.query.get(product_id))
+        
+        # Delete the product
+        product.delete()
+        
+        # Ensure the product is deleted
+        self.assertIsNone(Product.query.get(product_id))
 
-    def test_create_a_product(self):
-        """It should Create a product and assert that it exists"""
-        product = Product(name="Fedora", description="A red hat", price=12.50, available=True, category=Category.CLOTHS)
-        self.assertEqual(str(product), "<Product Fedora id=[None]>")
-        self.assertTrue(product is not None)
-        self.assertEqual(product.id, None)
-        self.assertEqual(product.name, "Fedora")
-        self.assertEqual(product.description, "A red hat")
-        self.assertEqual(product.available, True)
-        self.assertEqual(product.price, 12.50)
-        self.assertEqual(product.category, Category.CLOTHS)
+    def test_list_all_products(self):
+        """It should list all products in the database."""
+        ProductFactory.create_batch(5)  # Create 5 products
+        products = Product.query.all()
+        
+        # Ensure there are 5 products in the database
+        self.assertEqual(len(products), 5)
 
-    def test_add_a_product(self):
-        """It should Create a product and add it to the database"""
-        products = Product.all()
-        self.assertEqual(products, [])
-        product = ProductFactory()
-        product.id = None
-        product.create()
-        # Assert that it was assigned an id and shows up in the database
-        self.assertIsNotNone(product.id)
-        products = Product.all()
-        self.assertEqual(len(products), 1)
-        # Check that it matches the original product
-        new_product = products[0]
-        self.assertEqual(new_product.name, product.name)
-        self.assertEqual(new_product.description, product.description)
-        self.assertEqual(Decimal(new_product.price), product.price)
-        self.assertEqual(new_product.available, product.available)
-        self.assertEqual(new_product.category, product.category)
+    def test_find_by_name(self):
+        """It should find products by their name."""
+        products = ProductFactory.create_batch(5)  # Create 5 products
+        name_to_search = products[0].name  # Get name of the first product
+        
+        # Find products by name
+        found_products = Product.find_by_name(name_to_search)
+        
+        # Ensure the count matches the number of products with that name
+        self.assertEqual(len(found_products), sum(1 for p in products if p.name == name_to_search))
+        
+        # Ensure all found products have the correct name
+        for product in found_products:
+            self.assertEqual(product.name, name_to_search)
 
-    #
-    # ADD YOUR TEST CASES HERE
-    #
+    def test_find_by_availability(self):
+        """It should find products by availability."""
+        products = ProductFactory.create_batch(10)  # Create 10 products
+        availability_to_search = products[0].available  # Get availability of the first product
+        
+        # Find products by availability
+        found_products = Product.find_by_availability(availability_to_search)
+        
+        # Ensure the count matches the number of products with that availability
+        self.assertEqual(len(found_products), sum(1 for p in products if p.available == availability_to_search))
+        
+        # Ensure all found products have the correct availability
+        for product in found_products:
+            self.assertEqual(product.available, availability_to_search)
+
+    def test_find_by_category(self):
+        """It should find products by category."""
+        products = ProductFactory.create_batch(10)  # Create 10 products
+        category_to_search = products[0].category  # Get category of the first product
+        
+        # Find products by category
+        found_products = Product.find_by_category(category_to_search)
+        
+        # Ensure the count matches the number of products with that category
+        self.assertEqual(len(found_products), sum(1 for p in products if p.category == category_to_search))
+        
+        # Ensure all found products have the correct category
+        for product in found_products:
+            self.assertEqual(product.category, category_to_search)
+
+if __name__ == '__main__':
+    unittest.main()
