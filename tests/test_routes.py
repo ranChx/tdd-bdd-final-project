@@ -178,3 +178,38 @@ class TestProductRoutes(TestCase):
         data = response.get_json()
         # logging.debug("data = %s", data)
         return len(data)
+from your_project_name import BASE_URL  # Adjust the import for your base URL
+
+class ProductTestCase(unittest.TestCase):
+    # Assuming the _create_products() method exists
+    def test_get_product(self):
+        """It should Get a Product by ID"""
+        # Create a product and assign it to test_product
+        products = self._create_products(1)  # Create one product
+        test_product = products[0]  # Assuming the first product is the one we created
+
+        # Make GET request to the product API
+        response = self.client.get(f"{BASE_URL}/products/{test_product.id}")
+        
+        # Assert that the response is successful (HTTP 200 OK)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        # Assert that the response data matches the product data
+        data = response.get_json()
+        self.assertEqual(data["id"], test_product.id)
+        self.assertEqual(data["name"], test_product.name)
+        self.assertEqual(data["description"], test_product.description)
+        self.assertEqual(data["price"], test_product.price)
+        self.assertEqual(data["available"], test_product.available)
+        self.assertEqual(data["category"], test_product.category)
+    def test_get_product_not_found(self):
+        """It should not Get a Product that's not found"""
+        # Make GET request with an invalid product ID (e.g., 0)
+        response = self.client.get(f"{BASE_URL}/products/0")
+        
+        # Assert that the response is HTTP 404 Not Found
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        
+        # Assert that the response contains a relevant message
+        data = response.get_json()
+        self.assertIn("was not found", data["message"])
