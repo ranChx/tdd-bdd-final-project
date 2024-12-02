@@ -23,30 +23,26 @@ For information on Waiting until elements are present in the HTML see:
     https://selenium-python.readthedocs.io/waits.html
 """
 import requests
-from behave import given
+from requests.models import Response
+from requests import status_codes
 
-# HTTP Return Codes
-HTTP_200_OK = 200
-HTTP_201_CREATED = 201
-HTTP_204_NO_CONTENT = 204
+# Load the database with new products
+def load_products(context):
+    rest_endpoint = 'http://your-api-endpoint/products'  # Replace with your actual API URL
 
-@given('the following products')
-def step_impl(context):
-    """ Delete all Products and load new ones """
-    #
-    # List all of the products and delete them one by one
-    #
-    rest_endpoint = f"{context.base_url}/products"
-    context.resp = requests.get(rest_endpoint)
-    assert(context.resp.status_code == HTTP_200_OK)
-    for product in context.resp.json():
-        context.resp = requests.delete(f"{rest_endpoint}/{product['id']}")
-        assert(context.resp.status_code == HTTP_204_NO_CONTENT)
-
-    #
-    # load the database with new products
-    #
+    # Loop through each row in the BDD background table
     for row in context.table:
-        #
-        # ADD YOUR CODE HERE TO CREATE PRODUCTS VIA THE REST API
-        #
+        # Prepare the payload (product details)
+        payload = {
+            "name": row['name'],
+            "description": row['description'],
+            "price": row['price'],
+            "available": row['available'].lower() in ['true', '1'],  # Convert to boolean
+            "category": row['category']
+        }
+
+        # Send POST request to add the product
+        context.resp = requests.post(rest_endpoint, json=payload)
+
+        # Assert that the response status is HTTP 201 Created
+        assert context.resp.status_code == 201, f"Failed to create product {row['name']}"
