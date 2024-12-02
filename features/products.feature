@@ -87,3 +87,5 @@ Scenario: Search for Products by Name
     And I should see "Hat" in the product list
     And I should not see "Shirt" in the product list
     And I should not see "Shoes" in the product list
+
+
