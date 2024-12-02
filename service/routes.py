@@ -126,3 +126,11 @@ def create_products():
 #
 # PLACE YOUR CODE TO DELETE A PRODUCT HERE
 #
+@app.route("/products/<int:product_id>", methods=["GET"])
+def get_product(product_id):
+    """Fetch a product by ID"""
+    product = Product.find(product_id)
+    if not product:
+        abort(404, description="Product not found")
+    
+    return jsonify(product.serialize()), 200
